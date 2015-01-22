@@ -48,7 +48,7 @@ describe Admin::CategoriesController do
 
     it 'should render destroy template' do
       assert_response :success
-      assert_template 'destroy'      
+      assert_template 'destroy'
     end
   end
 
@@ -62,5 +62,48 @@ describe Admin::CategoriesController do
 
     assert_raise(ActiveRecord::RecordNotFound) { Category.find(test_id) }
   end
-  
+
+  describe "category in admin page" do
+
+    before :each do
+      get :admin_categories, action: :new
+    end
+
+    it 'navigates to page correctly' do
+      assert_response :success
+    end
+
+    describe "create new category" do
+
+      let :sample_category do
+        {
+          name:         'A Category from specs',
+          keywords:     'test spec category',
+          description:  'Just testing this category stuff',
+          permalink:    'test-category456'
+        }
+      end
+
+      it 'creates a valid category' do
+        post :admin_categories, action: :edit, category: sample_category
+
+        assert_response :redirect, action: :new
+        expect(flash[:notice]).to eq 'Category was successfully saved.'
+      end
+
+    end
+
+    describe "create an empty category" do
+
+      it 'displays relevant error message' do
+        post :admin_categories, action: :edit
+
+        assert_response :redirect, action: :new
+        expect(flash[:error]).to eq 'Category could not be saved.'
+      end
+
+    end
+
+  end
+
 end
