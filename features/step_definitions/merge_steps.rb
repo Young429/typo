@@ -23,6 +23,6 @@ Then /^all comments from "(.*?)" should be linked to "(.*?)"$/ do |title_from, t
   article_from = Article.find_by_title title_from
   article_to = Article.find_by_title title_to
 
-  article_from.comments.count.should eq 0
+  article_from.should be_nil
   article_to.comments.count.should eq 4
 end

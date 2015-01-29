@@ -149,11 +149,13 @@
   </div>
   </div>
 
-  <div class='separator'>
-    <h4><%= _("Merge Articles") %></h4>
-    <p class='help-block'>Enter an id for an article you wish to merge into this article.</p>
-    <%= text_field_tag :merge_with, nil, {:autocomplete => :off, placeholder: 'Article ID'} %>
-    <%= submit_tag 'Merge' %>
-  </div>
+  <% if current_user.profile.label == 'admin' %>
+    <div class='separator'>
+      <h4><%= _("Merge Articles") %></h4>
+      <p class='help-block'>Enter an id for an article you wish to merge into this article.</p>
+      <%= text_field_tag :merge_with, nil, {:autocomplete => :off, placeholder: 'Article ID'} %>
+      <%= submit_tag 'Merge' %>
+    </div>
+  <% end %>
 
 </div>

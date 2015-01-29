@@ -475,9 +475,9 @@ describe Admin::ContentController do
       end
 
       it 'carries over all comments from merged article' do
-        article = Article.find second_article.id
+        article = Article.find_by_id second_article.id
 
-        expect(article.comments).to eq []
+        expect(article).to be_nil
 
         article = Article.find first_article.id
 

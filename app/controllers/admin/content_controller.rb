@@ -138,7 +138,7 @@ class Admin::ContentController < Admin::BaseController
   end
 
   def real_action_for(action); { 'add' => :<<, 'remove' => :delete}[action]; end
-  
+
   def new_or_edit
     id = params[:id]
     id = params[:article][:id] if params[:article] && params[:article][:id]
@@ -205,6 +205,8 @@ class Admin::ContentController < Admin::BaseController
           comment.article = @article
           comment.save!
         end
+
+        Article.find(article_to_merge.id).delete
 
         if @article.save
           flash[:notice] = _("Article successfully merged with \"#{article_to_merge.title}\"")
