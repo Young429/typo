@@ -189,7 +189,7 @@ class Admin::ContentController < Admin::BaseController
   end
 
   def article_merge
-    if current_user.profile == 'admin'
+    if current_user.profile.label == 'admin'
       merge_id = params[:merge_with].to_i
 
       if merge_id == @article.id
