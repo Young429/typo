@@ -189,31 +189,35 @@ class Admin::ContentController < Admin::BaseController
   end
 
   def article_merge
-    merge_id = params[:merge_with].to_i
+    if current_user.profile == 'admin'
+      merge_id = params[:merge_with].to_i
 
-    if merge_id == @article.id
-      flash[:error] = 'Cannot merge article with itself'
-    else
-      article_to_merge = Article.find_by_id merge_id
-
-      if article_to_merge.blank?
-        flash[:error] = _("Article with id #{params[:merge_with]} could not be found - merge failed")
+      if merge_id == @article.id
+        flash[:error] = 'Cannot merge article with itself'
       else
-        @article.body_and_extended = "#{@article.body_and_extended} #{article_to_merge.body_and_extended}"
+        article_to_merge = Article.find_by_id merge_id
 
-        article_to_merge.comments.each do |comment|
-          comment.article = @article
-          comment.save!
-        end
-
-        Article.find(article_to_merge.id).delete
-
-        if @article.save
-          flash[:notice] = _("Article successfully merged with \"#{article_to_merge.title}\"")
+        if article_to_merge.blank?
+          flash[:error] = _("Article with id #{params[:merge_with]} could not be found - merge failed")
         else
-          flash[:error] = _('We\'re sorry, but something went wrong when we tried to do the article merge')
+          @article.body_and_extended = "#{@article.body_and_extended} #{article_to_merge.body_and_extended}"
+
+          article_to_merge.comments.each do |comment|
+            comment.article = @article
+            comment.save!
+          end
+
+          Article.find(article_to_merge.id).delete
+
+          if @article.save
+            flash[:notice] = _("Article successfully merged with \"#{article_to_merge.title}\"")
+          else
+            flash[:error] = _('We\'re sorry, but something went wrong when we tried to do the article merge')
+          end
         end
       end
+    else
+      flash[:error] = _('We\'re sorry, but you are not authorised to merge articles')
     end
 
     redirect_to "/admin/content/edit/#{@article.id}"
