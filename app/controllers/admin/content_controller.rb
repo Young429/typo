@@ -13,7 +13,7 @@ class Admin::ContentController < Admin::BaseController
 
   def index
     @search = params[:search] ? params[:search] : {}
-    
+
     @articles = Article.search_with_pagination(@search, {:page => params[:page], :per_page => this_blog.admin_display_elements})
 
     if request.xhr?
@@ -44,7 +44,7 @@ class Admin::ContentController < Admin::BaseController
       flash[:error] = _("Error, you are not allowed to perform this action")
       return(redirect_to :action => 'index')
     end
-    
+
     return(render 'admin/shared/destroy') unless request.post?
 
     @record.destroy
@@ -77,7 +77,7 @@ class Admin::ContentController < Admin::BaseController
 
   def attachment_save(attachment)
     begin
-      Resource.create(:filename => attachment.original_filename, :mime => attachment.content_type.chomp, 
+      Resource.create(:filename => attachment.original_filename, :mime => attachment.content_type.chomp,
                       :created_at => Time.now).write_to_disk(attachment)
     rescue => e
       logger.info(e.message)
@@ -92,7 +92,7 @@ class Admin::ContentController < Admin::BaseController
     @article.text_filter = current_user.text_filter if current_user.simple_editor?
 
     get_fresh_or_existing_draft_for_article
-    
+
     @article.attributes = params[:article]
     @article.published = false
     set_article_author
@@ -138,49 +138,83 @@ class Admin::ContentController < Admin::BaseController
   end
 
   def real_action_for(action); { 'add' => :<<, 'remove' => :delete}[action]; end
-
+  
   def new_or_edit
     id = params[:id]
     id = params[:article][:id] if params[:article] && params[:article][:id]
     @article = Article.get_or_build_article(id)
-    @article.text_filter = current_user.text_filter if current_user.simple_editor?
 
-    @post_types = PostType.find(:all)
-    if request.post?
-      if params[:article][:draft]
-        get_fresh_or_existing_draft_for_article
+    if params[:merge_with].blank?
+      @article.text_filter = current_user.text_filter if current_user.simple_editor?
+
+      @post_types = PostType.find(:all)
+      if request.post?
+        if params[:article][:draft]
+          get_fresh_or_existing_draft_for_article
+        else
+          if not @article.parent_id.nil?
+            @article = Article.find(@article.parent_id)
+          end
+        end
+      end
+
+      @article.keywords = Tag.collection_to_string @article.tags
+      @article.attributes = params[:article]
+      # TODO: Consider refactoring, because double rescue looks... weird.
+
+      @article.published_at = DateTime.strptime(params[:article][:published_at], "%B %e, %Y %I:%M %p GMT%z").utc rescue Time.parse(params[:article][:published_at]).utc rescue nil
+
+      if request.post?
+        set_article_author
+        save_attachments
+
+        @article.state = "draft" if @article.draft
+
+        if @article.save
+          destroy_the_draft unless @article.draft
+          set_article_categories
+          set_the_flash
+          redirect_to :action => 'index'
+          return
+        end
+      end
+
+      @images = Resource.images_by_created_at.page(params[:page]).per(10)
+      @resources = Resource.without_images_by_filename
+      @macros = TextFilter.macro_filters
+      render 'new'
+    else
+      article_merge
+    end
+  end
+
+  def article_merge
+    merge_id = params[:merge_with].to_i
+
+    if merge_id == @article.id
+      flash[:error] = 'Cannot merge article with itself'
+    else
+      article_to_merge = Article.find_by_id merge_id
+
+      if article_to_merge.blank?
+        flash[:error] = _("Article with id #{params[:merge_with]} could not be found - merge failed")
       else
-        if not @article.parent_id.nil?
-          @article = Article.find(@article.parent_id)
+        @article.body_and_extended = "#{@article.body_and_extended} #{article_to_merge.body_and_extended}"
+
+        article_to_merge.comments.each do |comment|
+          comment.article = @article
+          comment.save!
+        end
+
+        if @article.save
+          flash[:notice] = _("Article successfully merged with \"#{article_to_merge.title}\"")
+        else
+          flash[:error] = _('We\'re sorry, but something went wrong when we tried to do the article merge')
         end
       end
     end
 
-    @article.keywords = Tag.collection_to_string @article.tags
-    @article.attributes = params[:article]
-    # TODO: Consider refactoring, because double rescue looks... weird.
-        
-    @article.published_at = DateTime.strptime(params[:article][:published_at], "%B %e, %Y %I:%M %p GMT%z").utc rescue Time.parse(params[:article][:published_at]).utc rescue nil
-
-    if request.post?
-      set_article_author
-      save_attachments
-      
-      @article.state = "draft" if @article.draft
-
-      if @article.save
-        destroy_the_draft unless @article.draft
-        set_article_categories
-        set_the_flash
-        redirect_to :action => 'index'
-        return
-      end
-    end
-
-    @images = Resource.images_by_created_at.page(params[:page]).per(10)
-    @resources = Resource.without_images_by_filename
-    @macros = TextFilter.macro_filters
-    render 'new'
+    redirect_to "/admin/content/edit/#{@article.id}"
   end
 
   def set_the_flash

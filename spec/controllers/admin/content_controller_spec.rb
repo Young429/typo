@@ -48,7 +48,7 @@ describe Admin::ContentController do
       response.should render_template('index')
       response.should be_success
     end
-    
+
     it 'should restrict to withdrawn articles' do
       article = Factory(:article, :state => 'withdrawn', :published_at => '2010-01-01')
       get :index, :search => {:state => 'withdrawn'}
@@ -56,7 +56,7 @@ describe Admin::ContentController do
       response.should render_template('index')
       response.should be_success
     end
-  
+
     it 'should restrict to withdrawn articles' do
       article = Factory(:article, :state => 'withdrawn', :published_at => '2010-01-01')
       get :index, :search => {:state => 'withdrawn'}
@@ -432,6 +432,56 @@ describe Admin::ContentController do
           assigns(:article).id.should_not == @draft.id
           Article.find(@draft.id).should_not be_nil
         end
+      end
+    end
+
+    describe "merging articles" do
+      let :first_article do
+        article = Factory(:article, title: 'The first article', body: 'Content of first article')
+
+        3.times do |i|
+          article.comments.create! author: "Author #{i}", body: "Comment no #{i}"
+        end
+
+        article
+      end
+
+      let :article_data do
+        {
+          id:                 first_article.id,
+          title:              first_article.title,
+          body_and_extended:  first_article.body
+        }
+      end
+
+      let :second_article do
+        article = Factory(:article, title: 'The second article', body: 'Content of second article')
+
+        3.times do |i|
+          article.comments.create! author: "Author #{i}", body: "Comment no #{i}"
+        end
+
+        article
+      end
+
+      before :each do
+        post :new, article: article_data, merge_with: second_article.id
+      end
+
+      it 'merges the article bodies' do
+        article = Article.find first_article.id
+
+        expect(article.body_and_extended).to eq "#{first_article.body_and_extended} #{second_article.body_and_extended}"
+      end
+
+      it 'carries over all comments from merged article' do
+        article = Article.find second_article.id
+
+        expect(article.comments).to eq []
+
+        article = Article.find first_article.id
+
+        expect(article.comments.count).to eq first_article.comments.count + second_article.comments.count
       end
     end
   end
